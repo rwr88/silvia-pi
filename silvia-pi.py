@@ -59,8 +59,14 @@ def pid_loop(dummy,state):
   def c_to_f(c):
     return c * 9.0 / 5.0 + 32.0
 
-  sensor = MAX31855.MAX31855(spi=SPI.SpiDev(conf.spi_port, conf.spi_dev))
-
+  def f_to_c(f):
+    return (f-32) * 5. / 9.
+  
+  print dir(conf)
+  print conf.SCK, conf.CS, conf.SO
+  
+  sensor = MAX31855.MAX31855(conf.SCK, conf.CS, conf.SO)
+  print sensor.readState()
   pid = PID.PID(conf.Pc,conf.Ic,conf.Dc)
   pid.SetPoint = state['settemp']
   pid.setSampleTime(conf.sample_time*5)
@@ -80,6 +86,12 @@ def pid_loop(dummy,state):
   lastcold = 0
   lastwarm = 0
 
+  cold = 100
+  hot = 200
+  if conf.celsius:
+    cold = f_to_c(cold)
+    hot = f_to_c(hot)
+
   try:
     while True : # Loops 10x/second
       tempc = sensor.readTempC()
@@ -90,15 +102,18 @@ def pid_loop(dummy,state):
         continue
       else:
         nanct = 0
+      state['curtemp'] = tempc
+      if conf.celsius:
+        temp = tempc
+      else:
+        temp = c_to_f(tempc)
+      temphist[i%5] = temp
+      avgtemp = sum(temphist)/float(len(temphist))
 
-      tempf = c_to_f(tempc)
-      temphist[i%5] = tempf
-      avgtemp = sum(temphist)/len(temphist)
-
-      if avgtemp < 100 :
+      if avgtemp < cold :
         lastcold = i
 
-      if avgtemp > 200 :
+      if avgtemp > hot :
         lastwarm = i
 
       if iscold and (i-lastcold)*conf.sample_time > 60*15 :
@@ -124,7 +139,7 @@ def pid_loop(dummy,state):
         avgpid = sum(pidhist)/len(pidhist)
 
       state['i'] = i
-      state['tempf'] = round(tempf,2)
+      state['temp'] = round(temp,2)
       state['avgtemp'] = round(avgtemp,2)
       state['pidval'] = round(pidout,2)
       state['avgpid'] = round(avgpid,2)
@@ -137,7 +152,7 @@ def pid_loop(dummy,state):
         state['dterm'] = round(pid.DTerm * conf.Dw,2)
       state['iscold'] = iscold
 
-      print time(), state
+      # print time(), state
 
       sleeptime = lasttime+conf.sample_time-time()
       if sleeptime < 0 :
@@ -156,11 +171,14 @@ def rest_server(dummy,state):
   import config as conf
   import os
 
-  basedir = os.path.dirname(__file__)
+  basedir = os.path.dirname(os.path.abspath(__file__))
   wwwdir = basedir+'/www/'
 
   @route('/')
   def docroot():
+    print __file__
+    print basedir
+    print wwwdir
     return static_file('index.html',wwwdir)
 
   @route('/<filepath:path>')
@@ -225,7 +243,81 @@ def rest_server(dummy,state):
   def healthcheck():
     return 'OK'
 
-  run(host='0.0.0.0',port=conf.port,server='paste')
+  run(host='0.0.0.0',port=conf.port)
+
+def kivy_gui(dummy, state):
+  from math import sin
+  from kivy.garden.graph import Graph, MeshLinePlot
+  from kivy.app import App
+  from kivy.clock import Clock
+  from kivy.uix.floatlayout import FloatLayout
+  from kivy.uix.boxlayout import BoxLayout
+  from kivy.uix.label import Label
+  import numpy
+  import time
+
+  class GUI(App):
+    def build(self):
+      self.start_time = round(time.time())
+
+      self.graph = Graph(
+        _with_stencilbuffer=False,
+        x_ticks_major=1,
+        y_ticks_major=1,
+        x_grid_label=False,
+        y_grid_label=True,
+        padding=10,
+        x_grid=True,
+        y_grid=True,
+        ymin=-1,
+        ymax=1
+      )
+      self.plot = MeshLinePlot(color=[1,1,0,1])
+      self.plot.points = []
+      self.graph.add_plot(self.plot)
+
+      self.temp_label = Label(
+        text=str(state['settemp']),
+        pos_hint = {'x': 0.45, 'y': 0.45}
+      )
+
+      Clock.schedule_interval(self.update, conf.refresh_rate)
+      
+      layout = FloatLayout()
+      layout.add_widget(self.graph)
+      layout.add_widget(self.temp_label)
+      return layout
+    
+    def update(self, *args):
+      if (state['heating']):
+        self.temp_label.color = [1,0,0,1]
+      else:
+        self.temp_label.color = [0,1,0,1]
+
+      current = round(time.time(), 1) - self.start_time
+      temp = state['avgtemp']
+      self.temp_label.text = str("%.2f / %.2f" % (temp, state['settemp']))
+
+      self.plot.points.append((current, temp))
+      self.graph.xmin = current-conf.seconds_to_display
+      self.graph.xmax = current
+      self.graph.ymin = round(min([x[1] for x in self.plot.points]))-3
+      self.graph.ymax = round(max([x[1] for x in self.plot.points]))+3
+      while self.plot.points[0][0] < self.graph.xmin:
+        self.plot.points.remove(self.plot.points[0])
+  GUI().run()
+  
+def gpio_temp_control(dummy, state):
+  from gpiozero import Button
+  def increase():
+    state['settemp'] += 0.1
+  def decrease():
+    state['settemp'] -= 0.1
+
+  up = Button(17)
+  down = Button(22)
+  up.when_pressed = increase
+  down.when_pressed = decrease
 
 if __name__ == '__main__':
   from multiprocessing import Process, Manager
@@ -240,19 +332,27 @@ if __name__ == '__main__':
   pidstate['i'] = 0
   pidstate['settemp'] = conf.set_temp
   pidstate['avgpid'] = 0.
-
+  pidstate['curtemp'] = 0.
+  pidstate['heating'] = False
+  
   p = Process(target=pid_loop,args=(1,pidstate))
   p.daemon = True
   p.start()
-
+  
   h = Process(target=he_control_loop,args=(1,pidstate))
   h.daemon = True
   h.start()
-
+  '''
   r = Process(target=rest_server,args=(1,pidstate))
   r.daemon = True
   r.start()
-
+  '''
+  gpio_temp_control(1, pidstate)
+  kivy_gui(1,pidstate)
+  #k = Process(target=kivy_gui, args=(1, pidstate))
+  #k.daemon = True
+  #k.start()
+  
   #Start Watchdog loop
   piderr = 0
   weberr = 0
@@ -261,7 +361,7 @@ if __name__ == '__main__':
 
   lasti = pidstate['i']
   sleep(1)
-
+  '''
   while p.is_alive() and h.is_alive() and r.is_alive():
     curi = pidstate['i']
     if curi == lasti :
@@ -293,3 +393,4 @@ if __name__ == '__main__':
     weberrflag = 0
 
     sleep(1)
+  '''
