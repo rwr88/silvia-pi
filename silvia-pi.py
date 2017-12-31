@@ -5,10 +5,12 @@ def he_control_loop(dummy,state):
   from datetime import datetime, timedelta
   import RPi.GPIO as GPIO
   import config as conf
+  from config import he_pins
 
   GPIO.setmode(GPIO.BCM)
-  GPIO.setup(conf.he_pin, GPIO.OUT)
-  GPIO.output(conf.he_pin,0)
+  for pin in he_pins:
+    GPIO.setup(pin, GPIO.OUT)
+    GPIO.output(pin, 0)
 
   heating = False
 
@@ -24,27 +26,33 @@ def he_control_loop(dummy,state):
 
       if state['snoozeon']:
         state['heating'] = False
-        GPIO.output(conf.he_pin,0)
+        for pin in he_pins:
+          GPIO.output(pin,0)
         sleep(1)
       else:
         if avgpid >= 100 :
           state['heating'] = True
-          GPIO.output(conf.he_pin,1)
+          for pin in he_pins:
+            GPIO.output(pin, 1)
           sleep(1)
         elif avgpid > 0 and avgpid < 100:
           state['heating'] = True
-          GPIO.output(conf.he_pin,1)
+          for pin in he_pins:
+            GPIO.output(pin, 1)
           sleep(avgpid/100.)
-          GPIO.output(conf.he_pin,0)
+          for pin in he_pins:
+            GPIO.output(pin, 0)
           sleep(1-(avgpid/100.))
           state['heating'] = False
         else:
-          GPIO.output(conf.he_pin,0)
+          for pin in he_pins:
+            GPIO.output(pin, 0)
           state['heating'] = False
           sleep(1)
 
   finally:
-    GPIO.output(conf.he_pin,0)
+    for pin in he_pins:
+      GPIO.output(pin, 0)
     GPIO.cleanup()
 
 def pid_loop(dummy,state):

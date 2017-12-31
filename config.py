@@ -8,7 +8,7 @@ SO = 19
 CS = 26
 
 # Pin # for relay connected to heating element
-he_pin = 11
+he_pins = [11, 9]
 
 # Default goal temperature
 celsius = True
