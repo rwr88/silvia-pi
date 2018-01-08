@@ -8,7 +8,7 @@ SO = 19
 CS = 26
 
 # Pin # for relay connected to heating element
-he_pins = [11, 9]
+he_pins = [21, 20]
 
 # Default goal temperature
 celsius = True
@@ -18,7 +18,7 @@ set_temp = 35.
 snooze = '07:00'
 
 # Main loop sample rate in seconds
-sample_time = 0.2
+sample_time = 0.1
 
 # PID Proportional, Integral, and Derivative values
 Pc = 3.4

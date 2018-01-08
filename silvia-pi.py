@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-def he_control_loop(dummy,state):
+def he_control_loop(lock,state):
   from time import sleep
   from datetime import datetime, timedelta
   import RPi.GPIO as GPIO
@@ -55,7 +55,8 @@ def he_control_loop(dummy,state):
       GPIO.output(pin, 0)
     GPIO.cleanup()
 
-def pid_loop(dummy,state):
+
+def pid_loop(lock,state):
   import sys
   from time import sleep, time
   from math import isnan
@@ -69,14 +70,15 @@ def pid_loop(dummy,state):
 
   def f_to_c(f):
     return (f-32) * 5. / 9.
-  
+
   print dir(conf)
   print conf.SCK, conf.CS, conf.SO
-  
+
   sensor = MAX31855.MAX31855(conf.SCK, conf.CS, conf.SO)
   print sensor.readState()
   pid = PID.PID(conf.Pc,conf.Ic,conf.Dc)
-  pid.SetPoint = state['settemp']
+  with lock:
+    pid.SetPoint = state['settemp']
   pid.setSampleTime(conf.sample_time*5)
 
   nanct=0
@@ -84,9 +86,10 @@ def pid_loop(dummy,state):
   j=0
   pidhist = [0.,0.,0.,0.,0.,0.,0.,0.,0.,0.]
   avgpid = 0.
-  temphist = [0.,0.,0.,0.,0.]
+  temphist = [0.,0.,0.,0.,0.,0.,0.,0.,0.,0.]
   avgtemp = 0.
-  lastsettemp = state['settemp']
+  with lock:
+    lastsettemp = state['settemp']
   lasttime = time()
   sleeptime = 0
   iscold = True
@@ -110,12 +113,18 @@ def pid_loop(dummy,state):
         continue
       else:
         nanct = 0
-      state['curtemp'] = tempc
+      with lock:
+        state['curtemp'] = tempc
       if conf.celsius:
         temp = tempc
       else:
         temp = c_to_f(tempc)
-      temphist[i%5] = temp
+
+      diff = avgtemp - temp
+      if i > len(temphist) and abs(diff) > 20 and avgtemp > 10:
+        temp = avgtemp # elimitate outliers
+
+      temphist[i%len(temphist)] = temp
       avgtemp = sum(temphist)/float(len(temphist))
 
       if avgtemp < cold :
@@ -126,19 +135,22 @@ def pid_loop(dummy,state):
 
       if iscold and (i-lastcold)*conf.sample_time > 60*15 :
         pid = PID.PID(conf.Pw,conf.Iw,conf.Dw)
-        pid.SetPoint = state['settemp']
+        with lock:
+          pid.SetPoint = state['settemp']
         pid.setSampleTime(conf.sample_time*5)
         iscold = False
 
-      if iswarm and (i-lastwarm)*conf.sample_time > 60*15 : 
+      if iswarm and (i-lastwarm)*conf.sample_time > 60*15 :
         pid = PID.PID(conf.Pc,conf.Ic,conf.Dc)
-        pid.SetPoint = state['settemp']
+        with lock:
+          pid.SetPoint = state['settemp']
         pid.setSampleTime(conf.sample_time*5)
         iscold = True
 
-      if state['settemp'] != lastsettemp :
-        pid.SetPoint = state['settemp']
-        lastsettemp = state['settemp']
+      with lock:
+        if state['settemp'] != lastsettemp :
+          pid.SetPoint = state['settemp']
+          lastsettemp = state['settemp']
 
       if i%10 == 0 :
         pid.update(avgtemp)
@@ -146,19 +158,20 @@ def pid_loop(dummy,state):
         pidhist[i/10%10] = pidout
         avgpid = sum(pidhist)/len(pidhist)
 
-      state['i'] = i
-      state['temp'] = round(temp,2)
-      state['avgtemp'] = round(avgtemp,2)
-      state['pidval'] = round(pidout,2)
-      state['avgpid'] = round(avgpid,2)
-      state['pterm'] = round(pid.PTerm,2)
-      if iscold :
-        state['iterm'] = round(pid.ITerm * conf.Ic,2)
-        state['dterm'] = round(pid.DTerm * conf.Dc,2)
-      else :
-        state['iterm'] = round(pid.ITerm * conf.Iw,2)
-        state['dterm'] = round(pid.DTerm * conf.Dw,2)
-      state['iscold'] = iscold
+      with lock:
+        state['i'] = i
+        state['temp'] = round(temp,2)
+        state['avgtemp'] = round(avgtemp,2)
+        state['pidval'] = round(pidout,2)
+        state['avgpid'] = round(avgpid,2)
+        state['pterm'] = round(pid.PTerm,2)
+        if iscold :
+          state['iterm'] = round(pid.ITerm * conf.Ic,2)
+          state['dterm'] = round(pid.DTerm * conf.Dc,2)
+        else :
+          state['iterm'] = round(pid.ITerm * conf.Iw,2)
+          state['dterm'] = round(pid.DTerm * conf.Dw,2)
+        state['iscold'] = iscold
 
       # print time(), state
 
@@ -172,233 +185,158 @@ def pid_loop(dummy,state):
   finally:
     pid.clear
 
-def rest_server(dummy,state):
-  from bottle import route, run, get, post, request, static_file, abort
-  from subprocess import call
-  from datetime import datetime
-  import config as conf
+
+def pygame_gui(lock, state):
+  import time
+  import pygame
   import os
 
-  basedir = os.path.dirname(os.path.abspath(__file__))
-  wwwdir = basedir+'/www/'
+  import matplotlib
+  matplotlib.use("Agg")
+  import matplotlib.pyplot as plt
+  plt.style.use("dark_background")
+  import matplotlib.backends.backend_agg as agg
 
-  @route('/')
-  def docroot():
-    print __file__
-    print basedir
-    print wwwdir
-    return static_file('index.html',wwwdir)
+  LCD_WIDTH = 320
+  LCD_HEIGHT = 240
+  LCD_SIZE = (LCD_WIDTH, LCD_HEIGHT)
 
-  @route('/<filepath:path>')
-  def servfile(filepath):
-    return static_file(filepath,wwwdir)
+  os.putenv('SDL_FBDEV', '/dev/fb1')
+  #os.putenv('SDL_MOUSEDRV', 'TSLIB')
+  #os.putenv('SDL_MOUSEDEV', '/dev/input/touchscreen')
 
-  @route('/curtemp')
-  def curtemp():
-    return str(state['avgtemp'])
+  pygame.init()
+  pygame.display.set_mode(LCD_SIZE, pygame.DOUBLEBUF)
 
-  @get('/settemp')
-  def settemp():
-    return str(state['settemp'])
+  pygame.mouse.set_visible(False)
 
-  @post('/settemp')
-  def post_settemp():
-    try:
-      settemp = float(request.forms.get('settemp'))
-      if settemp >= 200 and settemp <= 260 :
-        state['settemp'] = settemp
-        return str(settemp)
-      else:
-        abort(400,'Set temp out of range 200-260.')
-    except:
-      abort(400,'Invalid number for set temp.')
+  class Chart(object):
+    def __init__(self, refresh_rate, span, state):
+      self._state = state
+      self._len = int(span / refresh_rate)
+      with lock:
+        self._data = [self._state['curtemp'] for x in xrange(self._len)]
+        self._target = [self._state['settemp'] for x in xrange(self._len)]
+      self._refresh_rate = refresh_rate
 
-  @get('/snooze')
-  def get_snooze():
-    return str(state['snooze'])
+      self._figure = plt.figure(figsize=[4,3], dpi=80)
+      self._axes = self._figure.add_subplot(111)
+      self._data_plot, = self._axes.plot(self._data)
+      self._target_plot, = self._axes.plot(self._target)
+      self._figure.gca().get_xaxis().set_visible(False)
 
-  @post('/snooze')
-  def post_snooze():
-    snooze = request.forms.get('snooze')
-    try:
-      datetime.strptime(snooze,'%H:%M')
-    except:
-      abort(400,'Invalid time format.')
-    state['snoozeon'] = True
-    state['snooze'] = snooze
-    return str(snooze)
+    def set_data(self, data):
+      self._data = data
 
-  @post('/resetsnooze')
-  def reset_snooze():
-    state['snoozeon'] = False
-    return True
+    def add_temp(self, temp):
+      self._data.append(temp)
+      with lock:
+        self._target.append(self._state['settemp'])
+      if len(self._data) > self._len:
+        del self._data[0]
+        del self._target[0]
+      #print "Added temp:", temp
+      self.plot()
 
-  @get('/allstats')
-  def allstats():
-    return dict(state)
+    def plot(self):
+      #print "Plotting:", self._data
+      self._data_plot.set_ydata(self._data)
+      self._target_plot.set_ydata(self._target)
+      with lock:
+        avgtemp = self._state['avgtemp']
+        settemp = self._state['settemp']
+      self._axes.set_ylim(min(avgtemp-5, settemp-5), max(avgtemp+5, settemp+5))
+      self._axes.autoscale_view()
+      canvas = agg.FigureCanvasAgg(self._figure)
+      canvas.draw()
+      size = canvas.get_width_height()
+      renderer = canvas.get_renderer()
+      raw_data = renderer.tostring_rgb()
+      surf = pygame.image.fromstring(raw_data, size, "RGB")
+      pygame.display.get_surface().blit(surf, (0,0))
+      pygame.display.flip()
+      #print "Plotting done"
 
-  @route('/restart')
-  def restart():
-    call(["reboot"])
-    return '';
+    def run(self):
+      crashed = False
+      while not crashed:
+        with lock:
+          temp = self._state['avgtemp']
+        self.add_temp(temp)
+        for event in pygame.event.get():
+          if event.type == pygame.QUIT:
+            crashed = True
+          time.sleep(self._refresh_rate)
 
-  @route('/shutdown')
-  def shutdown():
-    call(["shutdown","-h","now"])
-    return '';
+  try:
+    c = Chart(0.5, 15, state)
+    c.run()
+  finally:
+    import sys
+    pygame.quit()
+    sys.exit()
 
-  @get('/healthcheck')
-  def healthcheck():
-    return 'OK'
-
-  run(host='0.0.0.0',port=conf.port)
-
-def kivy_gui(dummy, state):
-  from math import sin
-  from kivy.garden.graph import Graph, MeshLinePlot
-  from kivy.app import App
-  from kivy.clock import Clock
-  from kivy.uix.floatlayout import FloatLayout
-  from kivy.uix.boxlayout import BoxLayout
-  from kivy.uix.label import Label
-  import numpy
-  import time
-
-  class GUI(App):
-    def build(self):
-      self.start_time = round(time.time())
-
-      self.graph = Graph(
-        _with_stencilbuffer=False,
-        x_ticks_major=1,
-        y_ticks_major=1,
-        x_grid_label=False,
-        y_grid_label=True,
-        padding=10,
-        x_grid=True,
-        y_grid=True,
-        ymin=-1,
-        ymax=1
-      )
-      self.plot = MeshLinePlot(color=[1,1,0,1])
-      self.plot.points = []
-      self.graph.add_plot(self.plot)
-
-      self.temp_label = Label(
-        text=str(state['settemp']),
-        pos_hint = {'x': 0.45, 'y': 0.45}
-      )
-
-      Clock.schedule_interval(self.update, conf.refresh_rate)
-      
-      layout = FloatLayout()
-      layout.add_widget(self.graph)
-      layout.add_widget(self.temp_label)
-      return layout
-    
-    def update(self, *args):
-      if (state['heating']):
-        self.temp_label.color = [1,0,0,1]
-      else:
-        self.temp_label.color = [0,1,0,1]
-
-      current = round(time.time(), 1) - self.start_time
-      temp = state['avgtemp']
-      self.temp_label.text = str("%.2f / %.2f" % (temp, state['settemp']))
-
-      self.plot.points.append((current, temp))
-      self.graph.xmin = current-conf.seconds_to_display
-      self.graph.xmax = current
-      self.graph.ymin = round(min([x[1] for x in self.plot.points]))-3
-      self.graph.ymax = round(max([x[1] for x in self.plot.points]))+3
-      while self.plot.points[0][0] < self.graph.xmin:
-        self.plot.points.remove(self.plot.points[0])
-  GUI().run()
-  
-def gpio_temp_control(dummy, state):
+def gpio_temp_control(lock, state):
   from gpiozero import Button
+
   def increase():
+    print "increase"
     state['settemp'] += 0.1
+
   def decrease():
+    print "decrease"
     state['settemp'] -= 0.1
 
   up = Button(17)
-  down = Button(22)
   up.when_pressed = increase
+  down = Button(22)
   down.when_pressed = decrease
 
+  return up, down
+
+
 if __name__ == '__main__':
-  from multiprocessing import Process, Manager
+  from multiprocessing import Process, Manager, Lock
   from time import sleep
   from urllib2 import urlopen
   import config as conf
 
+  lock = Lock()
   manager = Manager()
   pidstate = manager.dict()
-  pidstate['snooze'] = conf.snooze 
+  pidstate['snooze'] = conf.snooze
   pidstate['snoozeon'] = False
   pidstate['i'] = 0
   pidstate['settemp'] = conf.set_temp
   pidstate['avgpid'] = 0.
   pidstate['curtemp'] = 0.
   pidstate['heating'] = False
-  
-  p = Process(target=pid_loop,args=(1,pidstate))
+  pidstate['avgtemp'] = None
+
+  up, down = gpio_temp_control(lock, pidstate)
+
+  p = Process(target=pid_loop,args=(lock, pidstate))
   p.daemon = True
   p.start()
-  
-  h = Process(target=he_control_loop,args=(1,pidstate))
+
+  h = Process(target=he_control_loop,args=(lock, pidstate))
   h.daemon = True
   h.start()
-  '''
-  r = Process(target=rest_server,args=(1,pidstate))
-  r.daemon = True
-  r.start()
-  '''
-  gpio_temp_control(1, pidstate)
-  kivy_gui(1,pidstate)
-  #k = Process(target=kivy_gui, args=(1, pidstate))
-  #k.daemon = True
-  #k.start()
-  
-  #Start Watchdog loop
-  piderr = 0
-  weberr = 0
-  weberrflag = 0
-  urlhc = 'http://localhost:'+str(conf.port)+'/healthcheck'
 
-  lasti = pidstate['i']
-  sleep(1)
-  '''
-  while p.is_alive() and h.is_alive() and r.is_alive():
-    curi = pidstate['i']
-    if curi == lasti :
-      piderr = piderr + 1
-    else :
-      piderr = 0
+  gui = Process(target=pygame_gui, args=(lock, pidstate))
+  gui.daemon = True
+  gui.start()
 
-    lasti = curi
-
-    if piderr > 9 :
-      print 'ERROR IN PID THREAD, RESTARTING'
-      p.terminate()
-
+  while p.is_alive and gui.is_alive and h.is_alive:
     try:
-      hc = urlopen(urlhc,timeout=2)
+      with lock:
+        print pidstate
+      sleep(10)
     except:
-      weberrflag = 1
-    else:
-      if hc.getcode() != 200 :
-        weberrflag = 1
+      break
 
-    if weberrflag != 0 :
-      weberr = weberr + 1
+  p.terminate()
+  h.terminate()
+  gui.terminate()
 
-    if weberr > 9 :
-      print 'ERROR IN WEB SERVER THREAD, RESTARTING'
-      r.terminate()
-
-    weberrflag = 0
-
-    sleep(1)
-  '''
+  #pygame_gui(lock, pidstate) #Blocking
