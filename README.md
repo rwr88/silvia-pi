@@ -1,27 +1,16 @@
 # silvia-pi
 A Raspberry Pi modification to the Rancilio Silvia Espresso Machine implementing PID temperature control.
 
-#### Currently Implemented Features:
-* Brew temperature control
-* RESTful API
-* Web interface for displaying temperature and other statistics
-* Programmable machine warm-up/wake-up
+This is based on http://github.com/brycesub/silvia-pi and adapted to graph current and target temperatures on a PiTFT28 fitted above the steam valve.
 
-#### Planned Features:
-* Steam temperature control
-* Timed shots with pre-infusion
-* Digital pressure gauge
-
-#### Dashboard
-<img src="https://github.com/brycesub/silvia-pi/blob/master/media/silvia_dashboard.gif" width=800 />
 
 #### Hardware
 * Raspberry Pi 2
   * $35 - http://www.amazon.com/Raspberry-Pi-Model-Project-Board/dp/B00T2U7R7I
   * $5 - Raspberry Pi Zero should work too
-* Wi-Fi Adapter that works with Raspbian
-  * $10 - http://www.amazon.com/Edimax-EW-7811Un-150Mbps-Raspberry-Supports/dp/B003MTTJOY or
-  * $10 - http://www.amazon.com/Tenda-150Mbps-Wireless-Adapter-W311MI/dp/B006GCYAOI
+* PiTFT 2.8"
+  * $45 Capacitive https://www.adafruit.com/product/2423
+  * $35 Resistive https://www.adafruit.com/product/2298
 * Power Adapter
   * Any Micro USB 5v / 2A supply will do, the longer the cable the better
   * $9 - http://www.amazon.com/CanaKit-Raspberry-Supply-Adapter-Charger/dp/B00GF9T3I0
@@ -59,6 +48,9 @@ High-level circuit diagram:
 Install Raspbian and configure Wi-Fi and timezone.
 
 #### silvia-pi Software Installation Instructions
+
+*** Outdated ***
+
 Execute on the pi bash shell:
 ````
 sudo apt-get -y update
@@ -78,51 +70,3 @@ This last step will download the necessariy python libraries and install the sil
 
 It also creates an entry in /etc/rc.local to start the software on every boot.
 
-#### API Documentation
-
-##### GET /allstats
-Returns JSON of all the following statistics:
-* i : Current loop iterator value (increases 10x per second)
-* tempf : Temperature in °F
-* avgtemp : Average temperature over the last 10 cycles (1 second) in °F
-* settemp : Current set (goal) temperature in °F
-* iscold : True if the temp was <120°F in the last 15 minutes
-* hestat : 0 if heating element is currently off, 1 if heating element is currently on
-* pidval : PID output from the last cycle
-* avgpid : Average PID output over the last 10 cycles (1 second)
-* pterm : PID P Term value (Proportional error)
-* iterm : PID I Term value (Integral error)
-* dterm : PID D Term value (Derivative error)
-* snooze : Current or last snooze time, a string in the format HH:MM (24 hour)
-* snoozeon : true if machine is currently snoozing, false if machine is not snoozing
-
-##### GET /curtemp
-Returns string of the current temperature in °F
-
-##### GET /settemp
-Returns string of the current set (goal) temperature in °F
-
-##### POST /settemp
-Expects one input 'settemp' with a value between 200-260.  
-Sets the set (goal) temperature in °F
-Returns the set temp back or a 400 error if unsuccessful.
-
-##### GET /snooze
-Returns string of the current or last snooze time formatted "HH:MM" (24 hour).  
-e.g. 13:00 if snoozing until 1:00 PM local time.
-
-##### POST /snooze
-Expects one input 'snooze', a string in the format "HH:MM" (24 hour).  
-This enables the snooze function, the machine will sleep until the time specified.  
-Returns the snooze time set or 400 if passed an invalid input.
-
-##### POST /resetsnooze
-Disables/cancels the current snooze functionality.  
-Returns true always.
-
-##### GET /restart
-Issues a reboot command to the Raspberry Pi.
-
-##### GET /healthcheck
-A simple healthcheck to see if the webserver thread is repsonding.  
-Returns string 'OK'.
