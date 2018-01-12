@@ -23,7 +23,7 @@ def he_control_loop(lock,state):
           state['snoozeon'] = False
 
       avgpid = state['avgpid']
-
+      print state
       if state['snoozeon']:
         state['heating'] = False
         for pin in he_pins:
@@ -92,20 +92,16 @@ def pid_loop(lock,state):
     lastsettemp = state['settemp']
   lasttime = time()
   sleeptime = 0
-  iscold = True
-  iswarm = False
-  lastcold = 0
-  lastwarm = 0
-
-  cold = 100
-  hot = 200
-  if conf.celsius:
-    cold = f_to_c(cold)
-    hot = f_to_c(hot)
 
   try:
     while True : # Loops 10x/second
+      with lock:
+        state['sensor'] = sensor.readState()
+        #print state
+
       tempc = sensor.readTempC()
+
+      # Validate temperature reading
       if isnan(tempc) :
         nanct += 1
         if nanct > 100000 :
@@ -113,6 +109,8 @@ def pid_loop(lock,state):
         continue
       else:
         nanct = 0
+
+      # Convert to F if needed
       with lock:
         state['curtemp'] = tempc
       if conf.celsius:
@@ -120,32 +118,10 @@ def pid_loop(lock,state):
       else:
         temp = c_to_f(tempc)
 
-      diff = avgtemp - temp
-      if i > len(temphist) and abs(diff) > 20 and avgtemp > 10:
-        temp = avgtemp # elimitate outliers
-
+      #Average temperature
       temphist[i%len(temphist)] = temp
       avgtemp = sum(temphist)/float(len(temphist))
 
-      if avgtemp < cold :
-        lastcold = i
-
-      if avgtemp > hot :
-        lastwarm = i
-
-      if iscold and (i-lastcold)*conf.sample_time > 60*15 :
-        pid = PID.PID(conf.Pw,conf.Iw,conf.Dw)
-        with lock:
-          pid.SetPoint = state['settemp']
-        pid.setSampleTime(conf.sample_time*5)
-        iscold = False
-
-      if iswarm and (i-lastwarm)*conf.sample_time > 60*15 :
-        pid = PID.PID(conf.Pc,conf.Ic,conf.Dc)
-        with lock:
-          pid.SetPoint = state['settemp']
-        pid.setSampleTime(conf.sample_time*5)
-        iscold = True
 
       with lock:
         if state['settemp'] != lastsettemp :
@@ -165,19 +141,10 @@ def pid_loop(lock,state):
         state['pidval'] = round(pidout,2)
         state['avgpid'] = round(avgpid,2)
         state['pterm'] = round(pid.PTerm,2)
-        if iscold :
-          state['iterm'] = round(pid.ITerm * conf.Ic,2)
-          state['dterm'] = round(pid.DTerm * conf.Dc,2)
-        else :
-          state['iterm'] = round(pid.ITerm * conf.Iw,2)
-          state['dterm'] = round(pid.DTerm * conf.Dw,2)
-        state['iscold'] = iscold
+        state['iterm'] = round(pid.ITerm * conf.Ic,2)
+        state['dterm'] = round(pid.DTerm * conf.Dc,2)
 
-      # print time(), state
-
-      sleeptime = lasttime+conf.sample_time-time()
-      if sleeptime < 0 :
-        sleeptime = 0
+      sleeptime = max(lasttime+conf.sample_time-time(), 0)
       sleep(sleeptime)
       i += 1
       lasttime = time()
@@ -235,17 +202,15 @@ def pygame_gui(lock, state):
       if len(self._data) > self._len:
         del self._data[0]
         del self._target[0]
-      #print "Added temp:", temp
       self.plot()
 
     def plot(self):
-      #print "Plotting:", self._data
       self._data_plot.set_ydata(self._data)
       self._target_plot.set_ydata(self._target)
       with lock:
         avgtemp = self._state['avgtemp']
         settemp = self._state['settemp']
-      self._axes.set_ylim(min(avgtemp-5, settemp-5), max(avgtemp+5, settemp+5))
+      self._axes.set_ylim(min(self._data+self._target)-5, max(self._data+self._target)+5)
       self._axes.autoscale_view()
       canvas = agg.FigureCanvasAgg(self._figure)
       canvas.draw()
@@ -255,7 +220,6 @@ def pygame_gui(lock, state):
       surf = pygame.image.fromstring(raw_data, size, "RGB")
       pygame.display.get_surface().blit(surf, (0,0))
       pygame.display.flip()
-      #print "Plotting done"
 
     def run(self):
       crashed = False
@@ -269,7 +233,7 @@ def pygame_gui(lock, state):
           time.sleep(self._refresh_rate)
 
   try:
-    c = Chart(0.5, 15, state)
+    c = Chart(0.5, 30, state)
     c.run()
   finally:
     import sys
@@ -329,8 +293,8 @@ if __name__ == '__main__':
 
   while p.is_alive and gui.is_alive and h.is_alive:
     try:
-      with lock:
-        print pidstate
+      #with lock:
+      #  print pidstate
       sleep(10)
     except:
       break
