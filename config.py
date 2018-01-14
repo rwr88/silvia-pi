@@ -12,7 +12,7 @@ he_pins = [21, 20]
 
 # Default goal temperature
 celsius = True
-set_temp = 90.
+set_temp = 97.
 
 # Default alarm time
 snooze = '07:00'
