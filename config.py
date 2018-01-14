@@ -25,10 +25,6 @@ Pc = 3.4
 Ic = 0.3
 Dc = 40.0
 
-Pw = 2.9
-Iw = 0.3
-Dw = 40.0
-
 #Web/REST Server Options
 port = 8080
 
