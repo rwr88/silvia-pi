@@ -51,6 +51,7 @@ def he_control_loop(lock,state):
           sleep(1)
 
   finally:
+    print "----------------------Closing heat--------------------------"
     for pin in he_pins:
       GPIO.output(pin, 0)
     GPIO.cleanup()
@@ -150,6 +151,7 @@ def pid_loop(lock,state):
       lasttime = time()
 
   finally:
+    print "--------------------Closing PID---------------------"
     pid.clear
 
 
@@ -188,6 +190,7 @@ def pygame_gui(lock, state):
 
       self._figure = plt.figure(figsize=[4,3], dpi=80)
       self._axes = self._figure.add_subplot(111)
+      self._axes.grid(linestyle='dotted')
       self._data_plot, = self._axes.plot(self._data)
       self._target_plot, = self._axes.plot(self._target)
       self._figure.gca().get_xaxis().set_visible(False)
@@ -237,6 +240,7 @@ def pygame_gui(lock, state):
     c.run()
   finally:
     import sys
+    print "----------Closing GUI----------"
     pygame.quit()
     sys.exit()
 
