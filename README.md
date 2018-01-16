@@ -2,7 +2,9 @@
 A Raspberry Pi modification to the Rancilio Silvia Espresso Machine implementing PID temperature control.
 
 This is based on http://github.com/brycesub/silvia-pi and adapted to graph current and target temperatures on a PiTFT28 fitted above the steam valve.
-
+#### UI
+Target temp can be controlled via buttons. Bottom button kills all processes.
+<img src="https://github.com/brycesub/silvia-pi/blob/master/media/screen_plexi_copper.jpg" width=800 />
 
 #### Hardware
 * Raspberry Pi 2
