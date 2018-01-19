@@ -1,14 +1,18 @@
 #!/usr/bin/python
 
 # Raspberry Pi SPI Port and Device
-spi_port = 0
-spi_dev = 0
+'''spi_port = 0
+spi_dev = 0'''
+SCK = 13
+SO = 19
+CS = 26
 
 # Pin # for relay connected to heating element
-he_pin = 26
+he_pins = [21, 20]
 
 # Default goal temperature
-set_temp = 221.
+celsius = True
+set_temp = 97.
 
 # Default alarm time
 snooze = '07:00'
@@ -21,9 +25,10 @@ Pc = 3.4
 Ic = 0.3
 Dc = 40.0
 
-Pw = 2.9
-Iw = 0.3
-Dw = 40.0
-
 #Web/REST Server Options
 port = 8080
+
+#kivy options
+refresh_rate = 1./5.
+fps = 1./refresh_rate
+seconds_to_display = 10
