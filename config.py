@@ -12,7 +12,7 @@ he_pins = [21, 20]
 
 # Default goal temperature
 celsius = True
-set_temp = 97.
+set_temp = 96.
 
 # Default alarm time
 snooze = '07:00'
@@ -21,9 +21,10 @@ snooze = '07:00'
 sample_time = 0.1
 
 # PID Proportional, Integral, and Derivative values
-Pc = 3.4
+Pc = 4
 Ic = 0.3
-Dc = 40.0
+Dc = 60.0
+windup = 20.0
 
 #Web/REST Server Options
 port = 8080

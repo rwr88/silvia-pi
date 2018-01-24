@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-from time import sleep
+from time import sleep, time
 from datetime import datetime, timedelta
 import RPi.GPIO as GPIO
 import config as conf
@@ -40,6 +40,11 @@ class Heat(object):
         for pin in he_pins:
           GPIO.output(pin,0)
         sleep(1)
+      elif time() < self._state['boost']:
+        self._state['heating'] = True
+        for pin in he_pins:
+          GPIO.output(pin, 1)
+          sleep(1)
       else:
         avgpid = self._state['avgpid']
 

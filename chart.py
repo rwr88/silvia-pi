@@ -57,7 +57,7 @@ class Chart(object):
     self._target_plot.set_ydata(self._target)
     avgtemp = self._state['avgtemp']
     settemp = self._state['settemp']
-    self._axes.set_ylim(min(self._data+self._target)-5, max(self._data+self._target)+5)
+    self._axes.set_ylim(min(self._data+self._target)-3, max(self._data+self._target)+3)
     self._axes.autoscale_view()
     canvas = agg.FigureCanvasAgg(self._figure)
     canvas.draw()
@@ -70,12 +70,16 @@ class Chart(object):
 
   def run(self):
     crashed = False
-    while not crashed:
-      temp = self._state['avgtemp']
-      self.add_temp(temp)
-      for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-          crashed = True
-        time.sleep(self._refresh_rate)
-
+    try:
+      while not crashed:
+        temp = self._state['avgtemp']
+        self.add_temp(temp)
+        for event in pygame.event.get():
+          if event.type == pygame.QUIT:
+            crashed = True
+          time.sleep(self._refresh_rate)
+    except Exception as e:
+      print e
+    except KeyboardInterrupt:
+      print "User interrupted process, exiting GUI"
 

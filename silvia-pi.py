@@ -39,18 +39,23 @@ def pygame_gui(lock, state):
 
 def gpio_temp_control(lock, state):
   from gpiozero import Button
+  from time import time
 
   def increase():
-    print "increase"
+    print "Increase button pressed"
     state['settemp'] += 0.1
 
   def decrease():
-    print "decrease"
+    print "Decrease button pressed"
     state['settemp'] -= 0.1
 
   def exit():
-    import sys
-    sys.exit()
+    print "Exit button pressed"
+    state['exit'] = True
+
+  def set_boost():
+    print "Heating for 5 seconds"
+    state['boost'] = time() + 5
 
   up = Button(17)
   up.when_pressed = increase
@@ -58,8 +63,10 @@ def gpio_temp_control(lock, state):
   down.when_pressed = decrease
   kill = Button(27)
   kill.when_pressed = exit
+  boost = Button(23)
+  boost.when_pressed = set_boost
 
-  return up, down, kill
+  return up, down, kill, boost
 
 
 if __name__ == '__main__':
@@ -79,8 +86,14 @@ if __name__ == '__main__':
   pidstate['curtemp'] = 0.
   pidstate['heating'] = False
   pidstate['avgtemp'] = None
+  pidstate['exit'] = False
+  pidstate['pterm'] = None
+  pidstate['iterm'] = None
+  pidstate['dterm'] = None
+  pidstate['pidval'] = None
+  pidstate['boost'] = 0
 
-  up, down, kill = gpio_temp_control(lock, pidstate)
+  up, down, kill, boost = gpio_temp_control(lock, pidstate)
 
   p = Process(target=pid_loop,args=(lock, pidstate))
   p.daemon = True
@@ -94,13 +107,16 @@ if __name__ == '__main__':
   gui.daemon = True
   gui.start()
 
-  while p.is_alive and gui.is_alive and h.is_alive:
+  while p.is_alive and gui.is_alive and h.is_alive and not pidstate['exit']:
     try:
-      print pidstate
-      sleep(5)
+      print "P: %s I: %s D: %s Out: %s Temp: %s" % (str(pidstate["pterm"]), str(pidstate["iterm"]), str(pidstate["dterm"]), str(pidstate["pidval"]), str(pidstate["avgtemp"]))
+      sleep(1)
     except:
       break
 
   p.terminate()
   h.terminate()
   gui.terminate()
+  p.join()
+  h.join()
+  gui.join()

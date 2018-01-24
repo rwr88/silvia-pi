@@ -21,19 +21,20 @@ class Sensor(object):
     print self._sensor.readState()
     self._pid = PID.PID(conf.Pc,conf.Ic,conf.Dc)
     self._pid.SetPoint = self._state['settemp']
-    self._pid.setSampleTime(conf.sample_time*5)
+    self._pid.setSampleTime(1)
+    self._pid.setWindup(conf.windup)
 
     self._nan_count = 0
     self._i=0
     self._pidhist = [0.,0.,0.,0.,0.,0.,0.,0.,0.,0.]
     self._avgpid = 0.
-    self._temphist = [0.,0.,0.,0.,0.,0.,0.,0.,0.,0.]
+    self._temphist = [0.,0.,0.,0.,0.]
     self._avgtemp = 0.
     self._lastsettemp = state['settemp']
     self._lasttime = time()
     self._sleeptime = 0
 
-  def run(self):
+  def run(self, verbose=False):
     while True:
       self._state['sensor'] = self._sensor.readState()
       tempc = self._sensor.readTempC()
@@ -45,6 +46,8 @@ class Sensor(object):
       self.update_target_temp()
       self.update_pid()
       self.update_state(temp)
+      if verbose:
+        print self._state
       self.sleep()
 
   def validate_temp(self, tempc):
@@ -84,20 +87,16 @@ class Sensor(object):
     self._state['temp'] = round(temp, 2)
     self._state['avgtemp'] = round(self._avgtemp, 2)
     diff = self._lastsettemp - self._avgtemp
+
     # Be aggressive on machine startup
     if diff > 10.0:
-      self._state['pidval'] = 100
-    # Calm down though!
-    elif diff > 5.0:
-      self._state['pidval'] = 50
-    # Actually using PID when close to target
-    else:
-      self._state['pidval'] = round(self._pid.output, 2)
+      self._state['boost'] = time() + 1
+
+    self._state['pidval'] = round(self._pid.output, 2)
     self._state['avgpid'] = round(self._avgpid, 2)
     self._state['pterm'] = round(self._pid.PTerm, 2)
     self._state['iterm'] = round(self._pid.ITerm * conf.Ic, 2)
     self._state['dterm'] = round(self._pid.DTerm * conf.Dc, 2)
-
   def sleep(self):
     sleeptime = max(self._lasttime+conf.sample_time-time(), 0)
     sleep(sleeptime)
@@ -106,3 +105,8 @@ class Sensor(object):
 
   def cleanup(self):
     self._pid.cleanup()
+
+
+if __name__ == "__main__":
+  pid = Sensor({ 'settemp': conf.set_temp })
+  pid.run(verbose=True)
