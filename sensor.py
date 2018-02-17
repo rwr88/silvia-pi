@@ -97,6 +97,7 @@ class Sensor(object):
     self._state['pterm'] = round(self._pid.PTerm, 2)
     self._state['iterm'] = round(self._pid.ITerm * conf.Ic, 2)
     self._state['dterm'] = round(self._pid.DTerm * conf.Dc, 2)
+    self._state['sterm'] = round(self._pid.STerm, 2)
   def sleep(self):
     sleeptime = max(self._lasttime+conf.sample_time-time(), 0)
     sleep(sleeptime)

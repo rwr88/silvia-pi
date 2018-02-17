@@ -34,11 +34,12 @@ class PID:
     """PID Controller
     """
 
-    def __init__(self, P=0.2, I=0.0, D=0.0):
+    def __init__(self, P=0.2, I=0.0, D=0.0, S=0.0):
 
         self.Kp = P
         self.Ki = I
         self.Kd = D
+        self.Ks = S
 
         self.sample_time = 0.00
         self.current_time = time.time()
@@ -53,7 +54,9 @@ class PID:
         self.PTerm = 0.0
         self.ITerm = 0.0
         self.DTerm = 0.0
+        self.STerm = 0.0
         self.last_error = 0.0
+        self.error_count = 0
 
         # Windup Guard
         self.int_error = 0.0
@@ -92,11 +95,19 @@ class PID:
             if delta_time > 0:
                 self.DTerm = delta_error / delta_time
 
+            if error > self.last_error:
+                self.error_count += 1
+                self.STerm = (error*self.Ks) ** self.error_count
+            else:
+                self.error_count = 0
+                self.STerm = 0.0
+
+
             # Remember last time and last error for next calculation
             self.last_time = self.current_time
             self.last_error = error
 
-            self.output = self.PTerm + (self.Ki * self.ITerm) + (self.Kd * self.DTerm)
+            self.output = self.PTerm + (self.Ki * self.ITerm) + (self.Kd * self.DTerm) + self.STerm
 
     def setKp(self, proportional_gain):
         """Determines how aggressively the PID reacts to the current error with setting Proportional Gain"""
@@ -109,6 +120,10 @@ class PID:
     def setKd(self, derivative_gain):
         """Determines how aggressively the PID reacts to the current error with setting Derivative Gain"""
         self.Kd = derivative_gain
+
+    def setKs(self, spring):
+        """Determines how aggressively the PID reacts to a constantly growing error"""
+        self.Ks = spring
 
     def setWindup(self, windup):
         """Integral windup, also known as integrator windup or reset windup,

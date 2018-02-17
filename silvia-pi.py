@@ -90,6 +90,7 @@ if __name__ == '__main__':
   pidstate['pterm'] = None
   pidstate['iterm'] = None
   pidstate['dterm'] = None
+  pidstate['sterm'] = None
   pidstate['pidval'] = None
   pidstate['boost'] = 0
 
@@ -109,7 +110,7 @@ if __name__ == '__main__':
 
   while p.is_alive and gui.is_alive and h.is_alive and not pidstate['exit']:
     try:
-      print "P: %s I: %s D: %s Out: %s Temp: %s" % (str(pidstate["pterm"]), str(pidstate["iterm"]), str(pidstate["dterm"]), str(pidstate["pidval"]), str(pidstate["avgtemp"]))
+      print "P: %s I: %s D: %s S: %s Out: %s Temp: %s" % (str(pidstate["pterm"]), str(pidstate["iterm"]), str(pidstate["dterm"]), str(pidstate["sterm"], str(pidstate["pidval"]), str(pidstate["avgtemp"]))
       sleep(1)
     except:
       break
