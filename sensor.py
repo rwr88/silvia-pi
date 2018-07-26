@@ -19,7 +19,7 @@ class Sensor(object):
     self._sensor = MAX31855.MAX31855(conf.SCK, conf.CS, conf.SO)
     self._state = state
     print self._sensor.readState()
-    self._pid = PID.PID(conf.Pc,conf.Ic,conf.Dc)
+    self._pid = PID.PID(conf.Pc,conf.Ic,conf.Dc, 0.3)
     self._pid.SetPoint = self._state['settemp']
     self._pid.setSampleTime(1)
     self._pid.setWindup(conf.windup)
