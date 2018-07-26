@@ -1,6 +1,9 @@
 #### TODO
 * Update requirements and install script
 * Re-include web interface and make it a config whether or not to use it
+* Save temp target changes to config
+* Make a F/C switch
+* Add functionality to restart the process
 
 # silvia-pi
 A Raspberry Pi modification to the Rancilio Silvia Espresso Machine implementing PID temperature control.

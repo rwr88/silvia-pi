@@ -24,6 +24,7 @@ sample_time = 0.1
 Pc = 4
 Ic = 0.3
 Dc = 60.0
+Sc = 0.5
 windup = 20.0
 
 #Web/REST Server Options
