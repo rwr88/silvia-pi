@@ -3,3 +3,4 @@ silvia-pi.log*
 kill.sh
 restart.sh
 *.debug.js
+logs/*

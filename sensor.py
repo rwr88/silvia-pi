@@ -6,6 +6,9 @@ import Adafruit_MAX31855.MAX31855 as MAX31855
 import PID as PID
 import config as conf
 
+import logging
+logger = logging.getLogger('silvia.sensor')
+
 def c_to_f(c):
   return c * 9.0 / 5.0 + 32.0
 
@@ -21,7 +24,7 @@ class Sensor(object):
     print self._sensor.readState()
     self._pid = PID.PID(conf.Pc,conf.Ic,conf.Dc, conf.Sc)
     self._pid.SetPoint = self._state['settemp']
-    self._pid.setSampleTime(1)
+    self._pid.setSampleTime(conf.sample_time)
     self._pid.setWindup(conf.windup)
 
     self._nan_count = 0
@@ -35,6 +38,7 @@ class Sensor(object):
     self._sleeptime = 0
 
   def run(self, verbose=False):
+    logger.info('PID loop started')
     while True:
       self._state['sensor'] = self._sensor.readState()
       tempc = self._sensor.readTempC()
@@ -54,7 +58,8 @@ class Sensor(object):
     if isnan(tempc):
       self._nan_count += 1
       if self._nan_count > 100000:
-        raise Exception("100 000 consecutive NaN values from sensor")
+        logger.error('100 000 consecutive NaN values from sensor')
+        raise Exception('100 000 consecutive NaN values from sensor')
       return False
     else:
       self._nan_count = 0
@@ -68,7 +73,7 @@ class Sensor(object):
     return temp
 
   def update_temp_hist_and_average(self, temp):
-    self._temphist[self._i%len(self._temphist)] = temp
+    self._temphist[self._i % len(self._temphist)] = temp
     self._avgtemp = sum(self._temphist)/float(len(self._temphist))
 
   def update_target_temp(self):
@@ -92,7 +97,7 @@ class Sensor(object):
     if diff > 10.0:
       self._state['boost'] = time() + 1
 
-    self._state['pidval'] = round(self._pid.output, 2)
+    self._state['pidval'] = min(round(self._pid.output, 2), 999.0)  #formatting matters
     self._state['avgpid'] = round(self._avgpid, 2)
     self._state['pterm'] = round(self._pid.PTerm, 2)
     self._state['iterm'] = round(self._pid.ITerm * conf.Ic, 2)
@@ -105,7 +110,7 @@ class Sensor(object):
     self._lasttime = time()
 
   def cleanup(self):
-    self._pid.cleanup()
+    self._pid.clear()
 
 
 if __name__ == "__main__":

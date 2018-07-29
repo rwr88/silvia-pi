@@ -5,7 +5,10 @@ from datetime import datetime, timedelta
 import RPi.GPIO as GPIO
 import config as conf
 from config import he_pins
+from config import sample_time as max_sleep
 
+import logging
+logger = logging.getLogger('silvia.heat')
 
 class Heat(object):
   def __init__(self, state):
@@ -25,7 +28,7 @@ class Heat(object):
 
   def run(self):
     heating = False
-
+    logger.info('Heat control loop started')
     while True:
       # Check if snooze is over
       if self._state['snoozeon'] == True :
@@ -53,20 +56,21 @@ class Heat(object):
           self._state['heating'] = True
           for pin in he_pins:
             GPIO.output(pin, 1)
-          sleep(1)
+          sleep(max_sleep)
         # Heat for avgpid/100 seconds, sleep the rest of the second
         elif avgpid > 0 and avgpid < 100:
           self._state['heating'] = True
           for pin in he_pins:
             GPIO.output(pin, 1)
-          sleep(avgpid/100.)
+          on_time = max_sleep * (avgpid/100.)
+          sleep(on_time)
           for pin in he_pins:
             GPIO.output(pin, 0)
-          sleep(1-(avgpid/100.))
+          sleep(max_sleep - on_time)
           self._state['heating'] = False
         # Don't heat
         else:
           for pin in he_pins:
             GPIO.output(pin, 0)
           self._state['heating'] = False
-          sleep(1)
+          sleep(max_sleep)

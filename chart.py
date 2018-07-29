@@ -9,12 +9,16 @@ import matplotlib.pyplot as plt
 plt.style.use("dark_background")
 import matplotlib.backends.backend_agg as agg
 
+import logging
+logger = logging.getLogger('silvia.gui')
+
 LCD_WIDTH = 320
 LCD_HEIGHT = 240
 LCD_SIZE = (LCD_WIDTH, LCD_HEIGHT)
 
 class Chart(object):
   def __init__(self, refresh_rate, span, state):
+    logger.info('GUI constructor')
     self._state = state
     self._len = int(span / refresh_rate)
     self._data = [self._state['curtemp'] for x in xrange(self._len)]
@@ -24,9 +28,12 @@ class Chart(object):
     self._figure = plt.figure(figsize=[4,3], dpi=80)
     self._axes = self._figure.add_subplot(111)
     self._axes.grid(linestyle='dotted')
+
+    logger.info('Plotting initial data')
     self._data_plot, = self._axes.plot(self._data)
     self._target_plot, = self._axes.plot(self._target)
     self._figure.gca().get_xaxis().set_visible(False)
+    logger.info('Constructor done')
 
   @staticmethod
   def start_pygame():
@@ -79,7 +86,7 @@ class Chart(object):
             crashed = True
           time.sleep(self._refresh_rate)
     except Exception as e:
-      print e
+      logger.error(e)
     except KeyboardInterrupt:
-      print "User interrupted process, exiting GUI"
-
+      logger.info('User interrupted process, exiting GUI')
+    logger.info('GUI exiting run() loop')

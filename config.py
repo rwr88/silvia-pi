@@ -18,7 +18,7 @@ set_temp = 96.
 snooze = '07:00'
 
 # Main loop sample rate in seconds
-sample_time = 0.1
+sample_time = 0.3
 
 # PID Proportional, Integral, and Derivative values
 Pc = 4
