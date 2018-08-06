@@ -42,14 +42,19 @@ class Sensor(object):
     while True:
       self._state['sensor'] = self._sensor.readState()
       tempc = self._sensor.readTempC()
+
       if not self.validate_temp(tempc):
         continue
+
+      if self._i == 0:
+        self._temphist = [tempc for x in range(len(self._temphist))]
 
       temp = self.convert_if_needed(tempc)
       self.update_temp_hist_and_average(temp)
       self.update_target_temp()
       self.update_pid()
       self.update_state(temp)
+
       if verbose:
         print self._state
       self.sleep()
@@ -62,6 +67,9 @@ class Sensor(object):
         raise Exception('100 000 consecutive NaN values from sensor')
       return False
     else:
+      if self._i > len(self._temphist) and abs(tempc-self._avgtemp) > 10.0:
+        return False
+
       self._nan_count = 0
       return True
 
@@ -94,15 +102,22 @@ class Sensor(object):
     diff = self._lastsettemp - self._avgtemp
 
     # Be aggressive on machine startup
-    if diff > 10.0:
+    if diff > 15.0:
       self._state['boost'] = time() + 1
 
-    self._state['pidval'] = min(round(self._pid.output, 2), 999.0)  #formatting matters
-    self._state['avgpid'] = round(self._avgpid, 2)
+    # And no need for a PID to tell me whether or not to heat up 1 degree passed our target
+    if diff <= -1:
+      self._state['pidval'] = 0
+      self._state['avgpid'] = 0
+    else:
+      self._state['pidval'] = min(round(self._pid.output, 2), 999.0)  #formatting matters
+      self._state['avgpid'] = round(self._avgpid, 2)
+
     self._state['pterm'] = round(self._pid.PTerm, 2)
     self._state['iterm'] = round(self._pid.ITerm * conf.Ic, 2)
     self._state['dterm'] = round(self._pid.DTerm * conf.Dc, 2)
     self._state['sterm'] = round(self._pid.STerm, 2)
+
   def sleep(self):
     sleeptime = max(self._lasttime+conf.sample_time-time(), 0)
     sleep(sleeptime)

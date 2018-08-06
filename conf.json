@@ -1,0 +1,1 @@
+{"py/object": "config.Config", "he_pins": [21, 20], "refresh_rate": 0.2, "SCK": 13, "windup": 20.0, "sample_time": 0.3, "Sc": 0.5, "Dc": 60.0, "set_temp": 97.80000000000003, "Pc": 4, "celsius": true, "SO": 19, "snooze": "07:00", "fps": 5.0, "CS": 26, "seconds_to_display": 10, "Ic": 0.3, "port": 8080}

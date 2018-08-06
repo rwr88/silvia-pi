@@ -50,7 +50,7 @@ class Heat(object):
           GPIO.output(pin, 1)
           sleep(1)
       else:
-        avgpid = self._state['avgpid']
+        avgpid = self._state['pidval']
 
         # Full heat
         if avgpid >= 100 :

@@ -145,7 +145,7 @@ if __name__ == '__main__':
   dir(fmt)
   while p.is_alive and gui.is_alive and h.is_alive and not pidstate['exit']:
     try:
-      print fmt.format('P: {pterm:7.2f}\tI: {iterm:7.2f}\tD: {dterm:7.2f}\tS: {sterm:7.2f}\tOut: {pidval:7.2f}\tTemp: {avgtemp:7.2f}', **pidstate)
+      print fmt.format('P: {pterm:7.2f}\tI: {iterm:7.2f}\tD: {dterm:7.2f}\tS: {sterm:7.2f}\tOut: {pidval:7.2f} Avg PID: {avgpid:7.2f}\tTemp: {avgtemp:7.2f}', **pidstate)
       sleep(1)
     except KeyboardInterrupt:
       logger.error('Keyboard interrupt, exiting')
