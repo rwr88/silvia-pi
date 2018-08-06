@@ -21,7 +21,9 @@ class Chart(object):
     logger.info('GUI constructor')
     self._state = state
     self._len = int(span / refresh_rate)
-    self._data = [self._state['curtemp'] for x in xrange(self._len)]
+    while self._state['temp'] == 0.0:
+      time.sleep(0.1)
+    self._data = [self._state['temp'] for x in xrange(self._len)]
     self._target = [self._state['settemp'] for x in xrange(self._len)]
     self._refresh_rate = refresh_rate
 
@@ -79,7 +81,7 @@ class Chart(object):
     crashed = False
     try:
       while not crashed:
-        temp = self._state['avgtemp']
+        temp = self._state['temp']
         self.add_temp(temp)
         for event in pygame.event.get():
           if event.type == pygame.QUIT:
