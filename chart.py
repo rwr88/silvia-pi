@@ -18,6 +18,7 @@ LCD_SIZE = (LCD_WIDTH, LCD_HEIGHT)
 
 class Chart(object):
   def __init__(self, refresh_rate, span, state):
+    self._last_on_state = None
     logger.info('GUI constructor')
     self._state = state
     self._len = int(span / refresh_rate)
@@ -81,6 +82,10 @@ class Chart(object):
     crashed = False
     try:
       while not crashed:
+        if self._last_on_state != self._state['on']:
+          color = 'green' if self._state['on'] else 'red'
+          self._target_plot.set_color(color)
+          self._last_on_state = self._state['on']
         temp = self._state['temp']
         self.add_temp(temp)
         for event in pygame.event.get():
