@@ -39,7 +39,7 @@ class Heat(object):
           self._state['snoozeon'] = False
 
       # Sleep if snoozing
-      if self._state['snoozeon']:
+      if self._state['snoozeon'] or not self._state['on']:
         self._state['heating'] = False
         for pin in he_pins:
           GPIO.output(pin,0)

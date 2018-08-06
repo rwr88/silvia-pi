@@ -65,9 +65,9 @@ def gpio_temp_control(lock, state):
     config.set_temp = state['settemp']
     config.save()
 
-  def exit():
+  def toggle():
     logger.info("Exit button pressed")
-    state['exit'] = True
+    state['on'] = not state['on']
 
   def set_boost():
     logger.info("Heating for 5 seconds")
@@ -78,7 +78,7 @@ def gpio_temp_control(lock, state):
   down = Button(22)
   down.when_pressed = decrease
   kill = Button(27)
-  kill.when_pressed = exit
+  kill.when_pressed = toggle
   boost = Button(23)
   boost.when_pressed = set_boost
 
@@ -109,7 +109,7 @@ if __name__ == '__main__':
   pidstate['i'] = 0
   pidstate['settemp'] = conf.set_temp
   pidstate['avgpid'] = 0.
-  pidstate['curtemp'] = 0.
+  pidstate['temp'] = 0.
   pidstate['heating'] = False
   pidstate['avgtemp'] = None
   pidstate['exit'] = False
@@ -119,6 +119,7 @@ if __name__ == '__main__':
   pidstate['sterm'] = None
   pidstate['pidval'] = None
   pidstate['boost'] = 0
+  pidstate['on'] = True
   logger.info('Main process started')
 
   up, down, kill, boost = gpio_temp_control(lock, pidstate)
@@ -145,7 +146,7 @@ if __name__ == '__main__':
   dir(fmt)
   while p.is_alive and gui.is_alive and h.is_alive and not pidstate['exit']:
     try:
-      print fmt.format('P: {pterm:7.2f}\tI: {iterm:7.2f}\tD: {dterm:7.2f}\tS: {sterm:7.2f}\tOut: {pidval:7.2f} Avg PID: {avgpid:7.2f}\tTemp: {avgtemp:7.2f}', **pidstate)
+      print fmt.format('P: {pterm:7.2f}\tI: {iterm:7.2f}\tD: {dterm:7.2f}\tS: {sterm:7.2f}\tOut: {pidval:7.2f} Avg PID: {avgpid:7.2f}\tTemp: {temp:7.2f}\tAvg Temp: {avgtemp:7.2f}', **pidstate)
       sleep(1)
     except KeyboardInterrupt:
       logger.error('Keyboard interrupt, exiting')
