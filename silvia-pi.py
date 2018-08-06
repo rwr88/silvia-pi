@@ -5,7 +5,7 @@ from datetime import datetime as dt
 
 logger = logging.getLogger('silvia')
 logger.setLevel(logging.INFO)
-fh = logging.FileHandler('logs/%s.log' % dt.strftime(dt.now(), '%Y-%m-%d'))
+fh = logging.FileHandler('/home/pi/silvia-pi/logs/%s.log' % dt.strftime(dt.now(), '%Y-%m-%d'))
 fh.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 fh.setFormatter(formatter)
