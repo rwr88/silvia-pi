@@ -3,9 +3,10 @@
 from time import sleep, time
 from datetime import datetime, timedelta
 import RPi.GPIO as GPIO
-import config as conf
-from config import he_pins
-from config import sample_time as max_sleep
+
+from config import config
+he_pins = config.he_pins
+max_sleep = config.sample_time
 
 import logging
 logger = logging.getLogger('silvia.heat')

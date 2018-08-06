@@ -4,7 +4,7 @@ from math import isnan
 import Adafruit_GPIO.SPI as SPI
 import Adafruit_MAX31855.MAX31855 as MAX31855
 import PID as PID
-import config as conf
+from config import config as conf
 
 import logging
 logger = logging.getLogger('silvia.sensor')

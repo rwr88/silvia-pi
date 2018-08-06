@@ -51,14 +51,19 @@ def pygame_gui(lock, state):
 def gpio_temp_control(lock, state):
   from gpiozero import Button
   from time import time
+  from config import config
 
   def increase():
     logger.info("Increase button pressed")
-    state['settemp'] += 0.1
+    state['settemp'] += 0.2
+    config.set_temp = state['settemp']
+    config.save()
 
   def decrease():
     logger.info("Decrease button pressed")
-    state['settemp'] -= 0.1
+    state['settemp'] -= 0.2
+    config.set_temp = state['settemp']
+    config.save()
 
   def exit():
     logger.info("Exit button pressed")
@@ -91,7 +96,7 @@ if __name__ == '__main__':
   from multiprocessing import Process, Manager, Lock
   from time import sleep
   from urllib2 import urlopen
-  import config as conf
+  from config import config as conf
   import sys
   from formatter import PartialFormatter
 
