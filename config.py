@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 import jsonpickle
 
 filename = '/home/pi/silvia-pi/conf.json'
@@ -8,15 +8,14 @@ class Config:
         pass
 
     def set_defaults(self):
-        # Raspberry Pi SPI Port and Device
-        '''spi_port = 0
-        spi_dev = 0'''
-        self.SCK = 13
-        self.SO = 19
-        self.CS = 26
+        # Sensor pins. Not using SPI because spi1 bus is busted and spi0 is used by PiTFT
+        self.SCK = 21
+        self.MISO = 19
+        self.MOSI = 20
+        self.CS = 5
 
         # Pin # for relay connected to heating element
-        self.he_pins = [21, 20]
+        self.he_pins = [12, 16]
 
         # Default goal temperature
         self.celsius = True

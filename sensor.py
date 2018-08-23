@@ -1,8 +1,7 @@
 import sys
 from time import sleep, time
 from math import isnan
-import Adafruit_GPIO.SPI as SPI
-import Adafruit_MAX31855.MAX31855 as MAX31855
+from max31865 import max31865
 import PID as PID
 from config import config as conf
 
@@ -15,14 +14,13 @@ def c_to_f(c):
 def f_to_c(f):
   return (f-32) * 5. / 9.
 
-print dir(conf)
+print(dir(conf))
 
 class Sensor(object):
   def __init__(self, state):
-    self._sensor = MAX31855.MAX31855(conf.SCK, conf.CS, conf.SO)
+    self._sensor = max31865(conf.CS, conf.MISO, conf.MOSI, conf.SCK)
     self._state = state
-    print self._sensor.readState()
-    self._pid = PID.PID(conf.Pc,conf.Ic,conf.Dc, conf.Sc)
+    self._pid = PID.PID(conf.Pc, conf.Ic, conf.Dc, conf.Sc)
     self._pid.SetPoint = self._state['settemp']
     self._pid.setSampleTime(conf.sample_time)
     self._pid.setWindup(conf.windup)
@@ -40,10 +38,10 @@ class Sensor(object):
   def run(self, verbose=False):
     logger.info('PID loop started')
     while True:
-      self._state['sensor'] = self._sensor.readState()
-      tempc = self._sensor.readTempC()
-
+      tempc = self._sensor.readTemp()
       if not self.validate_temp(tempc):
+        if verbose:
+          print('Invalid temp: {}'.format(tempc))
         continue
 
       if self._i == 0:
@@ -56,13 +54,13 @@ class Sensor(object):
       self.update_state(temp)
 
       if verbose:
-        print self._state
+        print(self._state)
       self.sleep()
 
   def validate_temp(self, tempc):
-    if isnan(tempc):
+    if isnan(tempc) or tempc==0.0:
       self._nan_count += 1
-      if self._nan_count > 100000:
+      if self._nan_count > 1000:
         logger.error('100 000 consecutive NaN values from sensor')
         raise Exception('100 000 consecutive NaN values from sensor')
       return False
@@ -92,7 +90,7 @@ class Sensor(object):
   def update_pid(self):
     self._pid.update(self._avgtemp)
     hist_length = len(self._pidhist)
-    self._pidhist[self._i/hist_length % hist_length] = self._pid.output
+    self._pidhist[self._i % hist_length] = self._pid.output
     self._avgpid = sum(self._pidhist) / hist_length
 
   def update_state(self, temp):
@@ -106,7 +104,10 @@ class Sensor(object):
       self._state['boost'] = time() + 1
 
     # And no need for a PID to tell me whether or not to heat up 1 degree passed our target
-    if diff <= -1:
+    if temp == 0.0:  # sensor dead
+      self._state['pidval'] = 0
+      self._state['avgpid'] = 0
+    elif diff <= -1:
       self._state['pidval'] = 0
       self._state['avgpid'] = 0
     else:
@@ -126,6 +127,9 @@ class Sensor(object):
 
   def cleanup(self):
     self._pid.clear()
+    # Make sure heating stops if there was a problem
+    self._state['pidval'] = 0
+    self._state['avgpid'] = 0
 
 
 if __name__ == "__main__":
