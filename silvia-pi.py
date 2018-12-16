@@ -125,11 +125,8 @@ if __name__ == '__main__':
   pidstate['pidval'] = None
   pidstate['boost'] = 0
   pidstate['on'] = True
+  pidstate['gui_on'] = False
   logger.info('Main process started')
-
-  up, down, kill, boost = gpio_temp_control(lock, pidstate)
-
-  logger.info('Buttons assigned')
 
   logger.info('Starting PID loop')
   p = Process(target=pid_loop,args=(lock, pidstate))
@@ -145,6 +142,12 @@ if __name__ == '__main__':
   gui = Process(target=pygame_gui, args=(lock, pidstate))
   gui.daemon = True
   gui.start()
+
+  while not pidstate['gui_on']:
+    sleep(1)
+
+  up, down, kill, boost = gpio_temp_control(lock, pidstate)
+  logger.info('Buttons assigned')
 
   logger.info('Starting status loop')
   fmt = PartialFormatter()

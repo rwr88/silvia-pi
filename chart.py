@@ -37,6 +37,7 @@ class Chart(object):
     self._target_plot, = self._axes.plot(self._target)
     self._figure.gca().get_xaxis().set_visible(False)
     logger.info('Constructor done')
+    state['gui_on'] = True
 
   @staticmethod
   def start_pygame():
