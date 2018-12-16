@@ -52,6 +52,8 @@ def gpio_temp_control(lock, state):
   from gpiozero import Button
   from time import time
   from config import config
+  import os
+  os.system('gpio -g mode 18 pwm | gpio pwmc 1000 | gpio -g pwm 18 800')
 
   def increase():
     logger.info("Increase button pressed")
@@ -68,6 +70,10 @@ def gpio_temp_control(lock, state):
   def toggle():
     logger.info("Exit button pressed")
     state['on'] = not state['on']
+    if state['on']:
+      os.system('gpio -g pwm 18 800')
+    else:
+      os.system('gpio -g pwm 18 100')
 
   def set_boost():
     logger.info("Heating for 5 seconds")
