@@ -26,6 +26,7 @@ class Sensor(object):
     self._pid.setWindup(conf.windup)
 
     self._nan_count = 0
+    self._outlier_count = 0
     self._i=0
     self._pidhist = [0.,0.,0.,0.,0.,0.,0.,0.,0.,0.]
     self._avgpid = 0.
@@ -58,16 +59,23 @@ class Sensor(object):
       self.sleep()
 
   def validate_temp(self, tempc):
-    if isnan(tempc) or tempc==0.0:
+    if isnan(tempc) or tempc == 0.0:
       self._nan_count += 1
       if self._nan_count > 1000:
+        self._state['on'] = False
         logger.error('100 000 consecutive NaN values from sensor')
         raise Exception('100 000 consecutive NaN values from sensor')
       return False
     else:
-      if self._i > len(self._temphist) and abs(tempc-self._avgtemp) > 10.0:
-        return False
+      if self._i > len(self._temphist) and abs(tempc-self._avgtemp) > 15.0:
+        self._outlier_count += 1
+        logger.info('Outlier: {}'.format(tempc))
+        if self._outlier_count > 50:
+          logger.error('Outlier count exceeds 50, going to take a nap')
+          self._state['on'] = False
+        return True
 
+      self._outlier_count = 0
       self._nan_count = 0
       return True
 
