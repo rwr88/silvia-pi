@@ -208,10 +208,10 @@ class FaultError(Exception):
 
 if __name__ == "__main__":
 	try:
-		csPin = 5
-		misoPin = 19
-		mosiPin = 20
-		clkPin = 21
+		csPin = 24
+		misoPin = 21
+		mosiPin = 17
+		clkPin = 23
 		max = max31865(csPin,misoPin,mosiPin,clkPin)
 		while True:
 			tempC = max.readTemp()
